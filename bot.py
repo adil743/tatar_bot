@@ -556,7 +556,9 @@ async def main():
 
     @dp.message(F.text)
     async def on_text_message(message: Message):
-        text_lower = message.text.lower()
+        text = message.text or ""
+        raw_text = text.strip()
+        text_lower = raw_text.lower()
 
         # ====== ПРОСТОЙ RATE LIMIT: не чаще 1 сообщения в 20 секунд от одного пользователя ======
         user_id = message.from_user.id if message.from_user else None
@@ -572,27 +574,61 @@ async def main():
                 return
             LAST_USER_MESSAGE_TIME[user_id] = now
 
-        # Обрабатываем только сообщения, которые начинаются с /Адиль (в любом регистре)
-        raw_text = message.text.strip()
-        trigger = "/адиль"
+        # ====== ОБРАБОТКА КНОПОК ГЛАВНОГО МЕНЮ ======
+        # Тексты кнопок:
+        # 🎭 Шутка / Joke
+        # 😂 Мем / Meme
+        # 📚 Татарский урок
+        # 🍲 Татарская еда
+        # 🏙 Казань / Татарстан
+        # 💬 Просто поболтать
 
-        if not raw_text.lower().startswith(trigger):
-            # На любые другие сообщения бот не отвечает
+        user_name = message.from_user.first_name if message.from_user else None
+
+        if raw_text.startswith("🎭 Шутка") or raw_text.startswith("Шутка / Joke"):
+            await message.answer(random_joke(user_name), reply_markup=joke_inline_kb)
             return
 
-        # Убираем триггер из текста и оставляем только вопрос пользователя
-        user_part = raw_text[len(trigger):].lstrip(" :,-")
-        if not user_part:
-            user_part = "Просто поболтай со мной коротко и дружелюбно."
+        if raw_text.startswith("😂 Мем") or raw_text.startswith("Мем / Meme"):
+            await message.answer(random_meme(), reply_markup=joke_inline_kb)
+            return
 
-        ai_question = (
-            "Пользователь обратился к тебе по вызову /Адиль. "
-            "Ответь очень кратко (1–3 предложения) в татаро‑русском стиле.\n\n"
-            f"Сообщение пользователя: {user_part}"
-        )
+        if raw_text.startswith("📚 Татарский урок") or raw_text.lower().startswith("татарский урок"):
+            await message.answer(random_tatar_lesson(), reply_markup=tatlesson_inline_kb)
+            return
 
-        ai_reply = await ask_ai(ai_question)
-        await message.answer(ai_reply)
+        if raw_text.startswith("🍲 Татарская еда") or raw_text.lower().startswith("татарская еда"):
+            await message.answer(random_food(), reply_markup=main_menu_kb)
+            return
+
+        if raw_text.startswith("🏙 Казань") or "казань" in text_lower or "татарстан" in text_lower:
+            await message.answer(random_fact(), reply_markup=main_menu_kb)
+            return
+
+        if raw_text.startswith("💬 Просто поболтать") or "поболтать" in text_lower:
+            await message.answer(random_small_talk(), reply_markup=main_menu_kb)
+            return
+
+        # ====== AI: ОБРАБОТКА ВЫЗОВА /Адиль ======
+        trigger = "/адиль"
+        if raw_text.lower().startswith(trigger):
+            # Убираем триггер из текста и оставляем только вопрос пользователя
+            user_part = raw_text[len(trigger):].lstrip(" :,-")
+            if not user_part:
+                user_part = "Просто поболтай со мной коротко и дружелюбно."
+
+            ai_question = (
+                "Пользователь обратился к тебе по вызову /Адиль. "
+                "Ответь очень кратко (1–3 предложения) в татаро‑русском стиле.\n\n"
+                f"Сообщение пользователя: {user_part}"
+            )
+
+            ai_reply = await ask_ai(ai_question)
+            await message.answer(ai_reply)
+            return
+
+        # На все остальные сообщения бот теперь просто не отвечает
+        return
 
     # Запуск
     await set_commands(bot)
