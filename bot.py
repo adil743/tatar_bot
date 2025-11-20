@@ -8,8 +8,8 @@ import google.generativeai as genai
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Рекомендуемая текстовая модель Gemini
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+# Рекомендуемая текстовая модель Gemini (серия 2.5 — актуальная)
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher, F
