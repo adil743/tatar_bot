@@ -2,6 +2,10 @@ import asyncio
 import os
 import random
 
+from openai import AsyncOpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode, ChatType
@@ -363,6 +367,22 @@ def random_small_talk() -> str:
     return f"{tat}\n{ru}"
 
 
+# ====== AI-интеграция ======
+async def ask_ai(question: str) -> str:
+    try:
+        response = await ai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are Adil, a funny Tatar bot who mixes Tatar and Russian language, keeps style of humor and cultural jokes."},
+                {"role": "user", "content": question},
+            ],
+            max_tokens=400,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"AI җавап бирә алмады: {e}"
+
+
 # ====== ОСНОВНАЯ ЛОГИКА БОТА ======
 
 async def set_commands(bot: Bot):
@@ -472,13 +492,12 @@ async def main():
     async def on_text_message(message: Message):
         text_lower = message.text.lower()
 
-        # Если пользователь ответил (Reply) на сообщение бота — включаем режим болталки
+        # Если пользователь ответил (Reply) на сообщение бота — отвечаем через GPT
         if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.id == bot_id:
-            await message.answer(
-                "💬 Болтаем дальше!\n"
-                + random_small_talk(),
-                reply_markup=main_menu_kb,
-            )
+            ai_intro = "Пользователь отвечает на предыдущее сообщение бота. Продолжи диалог в стиле татарского дружелюбного бота Адиля."
+            full_question = f"{ai_intro}\n\nТекст пользователя: {message.text}"
+            ai_reply = await ask_ai(full_question)
+            await message.answer(ai_reply, reply_markup=main_menu_kb)
             return
 
         if message.chat.type == ChatType.PRIVATE:
@@ -506,6 +525,12 @@ async def main():
                 )
                 return
 
+            # AI режим — если сообщение длинное или не подходит под шаблоны
+            if len(message.text.split()) > 3:
+                ai_reply = await ask_ai(message.text)
+                await message.answer(ai_reply, reply_markup=main_menu_kb)
+                return
+
             # ЛС: отвечаем всегда
             if any(word in text_lower for word in ["привет", "сәлам", "салам", "салам алейкум"]):
                 await message.answer(random_joke(message.from_user.first_name if message.from_user else None))
@@ -531,7 +556,8 @@ async def main():
                     "Киләсе фразаны өйрәник! / Давай выучим фразу!\n\n" + random_tatar_lesson()
                 )
             else:
-                await message.answer(random_small_talk(), reply_markup=main_menu_kb)
+                ai_reply = await ask_ai(message.text)
+                await message.answer(ai_reply, reply_markup=main_menu_kb)
 
         # Группы: отвечаем, только если упомянут Адиль
         elif message.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
