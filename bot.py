@@ -2,9 +2,14 @@ import asyncio
 import os
 import random
 
-from openai import AsyncOpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+import google.generativeai as genai
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Модель Gemini, которую будем использовать
+gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher, F
@@ -367,20 +372,43 @@ def random_small_talk() -> str:
     return f"{tat}\n{ru}"
 
 
-# ====== AI-интеграция ======
+
+# ====== AI-интеграция (Gemini) ======
 async def ask_ai(question: str) -> str:
-    try:
-        response = await ai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are Adil, a funny Tatar bot who mixes Tatar and Russian language, keeps style of humor and cultural jokes."},
-                {"role": "user", "content": question},
-            ],
-            max_tokens=400,
+    """
+    Отправляем вопрос в Gemini и возвращаем текстовый ответ.
+    Используем отдельный поток через asyncio.to_thread, потому что
+    клиент Gemini синхронный.
+    """
+    if not GEMINI_API_KEY:
+        return (
+            "AI хәзер үпкәләгән кебек — GEMINI_API_KEY табылмады. 🧐\n"
+            "Хостингта шул исемле переменную окружения куярга кирәк."
         )
-        return response.choices[0].message.content
+
+    system_prompt = (
+        "Син Адиль исемле татар боты. Син җавап биргәндә татарча һәм русча "
+        "телләрен бутарга мөмкин, юмор, Татарстан, Казан, татар ашлары турында "
+        "культура шаярулар куллан. Ләкин җавапларың файдалы һәм аңлаешлы булсын.\n\n"
+        "Кулланучы соравы:\n"
+    )
+
+    full_prompt = system_prompt + question
+
+    try:
+        # Вызов синхронного клиента Gemini в отдельном потоке
+        response = await asyncio.to_thread(
+            gemini_model.generate_content,
+            full_prompt,
+        )
+        # У Gemini основной текст лежит в свойстве .text
+        text = response.text if hasattr(response, "text") else str(response)
+        return text
     except Exception as e:
-        return f"AI җавап бирә алмады: {e}"
+        return (
+            "AI җавап бирә алмады (Gemini хатасы). "
+            f"Ә Адиль болай да синең белән. Деталь: {e}"
+        )
 
 
 # ====== ОСНОВНАЯ ЛОГИКА БОТА ======
