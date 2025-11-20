@@ -10,7 +10,7 @@ from aiogram.types import Message, BotCommand
 
 
 # ====== НАСТРОЙКИ ======
-BOT_TOKEN = "7809086646:AAG-lBoD6kVdsjijPxqNhP6iTkKVZV87CGo"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 
 # ====== ДАННЫЕ ДЛЯ ОТВЕТОВ БОТА ======
