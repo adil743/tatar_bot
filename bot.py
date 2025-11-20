@@ -1,6 +1,7 @@
 import asyncio
 import os
 import random
+import time
 
 
 import google.generativeai as genai
@@ -9,7 +10,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Рекомендуемая текстовая модель Gemini (серия 2.5 — актуальная)
+
 gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+
+# ====== ОГРАНИЧЕНИЕ ЧАСТОТЫ ОТВЕТОВ (RATE LIMIT) ======
+# Не чаще одного ответа раз в 20 секунд для каждого пользователя
+RATE_LIMIT_SECONDS = 20
+LAST_USER_MESSAGE_TIME: dict[int, float] = {}
 
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher, F
@@ -520,6 +527,22 @@ async def main():
     @dp.message(F.text)
     async def on_text_message(message: Message):
         text_lower = message.text.lower()
+
+        # ====== ПРОСТОЙ RATE LIMIT: не чаще 1 сообщения в 20 секунд от одного пользователя ======
+        user_id = message.from_user.id if message.from_user else None
+        if user_id is not None:
+            now = time.time()
+            last_time = LAST_USER_MESSAGE_TIME.get(user_id)
+            if last_time is not None and now - last_time < RATE_LIMIT_SECONDS:
+                # Слишком частые сообщения — отвечаем, что нужно подождать
+                remaining = int(RATE_LIMIT_SECONDS - (now - last_time)) + 1
+                await message.answer(
+                    f"Әкренрәк, дусым 🙂 Мин бер кулланучыга {RATE_LIMIT_SECONDS} секундтан да ешрак җавап бирмим.\n"
+                    f"Подожди ещё примерно {remaining} сек. һәм я опять җавап бирәм. 😉"
+                )
+                return
+            # Обновляем время последнего сообщения пользователя
+            LAST_USER_MESSAGE_TIME[user_id] = now
 
         # Если пользователь ответил (Reply) на сообщение бота — отвечаем через GPT
         if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.id == bot_id:
