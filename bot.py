@@ -9,7 +9,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Модель Gemini, которую будем использовать
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+gemini_model = genai.GenerativeModel("gemini-pro")
 
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher, F
@@ -376,9 +376,8 @@ def random_small_talk() -> str:
 # ====== AI-интеграция (Gemini) ======
 async def ask_ai(question: str) -> str:
     """
-    Отправляем вопрос в Gemini и возвращаем текстовый ответ.
-    Используем отдельный поток через asyncio.to_thread, потому что
-    клиент Gemini синхронный.
+    Отправляем вопрос в Gemini (gemini-pro) и возвращаем текстовый ответ.
+    Клиент Gemini синхронный, поэтому вызываем его через asyncio.to_thread.
     """
     if not GEMINI_API_KEY:
         return (
@@ -389,7 +388,7 @@ async def ask_ai(question: str) -> str:
     system_prompt = (
         "Син Адиль исемле татар боты. Син җавап биргәндә татарча һәм русча "
         "телләрен бутарга мөмкин, юмор, Татарстан, Казан, татар ашлары турында "
-        "культура шаярулар куллан. Ләкин җавапларың файдалы һәм аңлаешлы булсын.\n\n"
+        "шаярулар куллан. Ләкин җавапларың файдалы һәм аңлаешлы булсын.\n\n"
         "Кулланучы соравы:\n"
     )
 
@@ -402,7 +401,9 @@ async def ask_ai(question: str) -> str:
             full_prompt,
         )
         # У Gemini основной текст лежит в свойстве .text
-        text = response.text if hasattr(response, "text") else str(response)
+        text = getattr(response, "text", None)
+        if not text:
+            text = str(response)
         return text
     except Exception as e:
         return (
