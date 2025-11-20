@@ -229,7 +229,11 @@ HELP_TEXT = (
     "  /kazan – факт про Казань / Татарстан\n"
     "  /food – татарская еда\n"
     "  /tatlesson – урок татарского\n"
-    "  /tatnext – следующая фраза\n\n"
+    "  /tatnext – следующая фраза\n"
+    "  /translate – режим переводчика\n\n"
+    "• Переводчик (татарский ↔ русский):\n"
+    "  ru>tt текст — перевести с русского на татарский\n"
+    "  tt>ru текст — перевести с татарского на русский\n\n"
     "✨ Бот отвечает кратко (1–3 предложения) и в татаро‑русском стиле."
 )
 
@@ -288,6 +292,7 @@ main_menu_kb = ReplyKeyboardMarkup(
         ],
         [
             KeyboardButton(text="💬 Просто поболтать"),
+            KeyboardButton(text="🌐 Переводчик"),
         ],
     ],
     resize_keyboard=True,
@@ -463,6 +468,7 @@ async def set_commands(bot: Bot):
         BotCommand(command="food", description="Татар ашлары"),
         BotCommand(command="tatlesson", description="Урок татарского"),
         BotCommand(command="tatnext", description="Ещё фраза татарского"),
+        BotCommand(command="translate", description="Переводчик ru↔tt"),
     ]
     await bot.set_my_commands(commands)
 
@@ -529,6 +535,19 @@ async def main():
     @dp.message(Command("tatnext"))
     async def cmd_tatnext(message: Message):
         await message.answer(random_tatar_lesson(), reply_markup=tatlesson_inline_kb)
+
+    @dp.message(Command("translate"))
+    async def cmd_translate(message: Message):
+        text = (
+            "🌐 <b>Переводчик татарский ↔ русский</b>\n\n"
+            "Напиши так:\n"
+            "• <code>ru>tt Ваш текст</code> — перевести с русского на татарский\n"
+            "• <code>tt>ru Сезнең текст</code> — перевести с татарского на русский\n\n"
+            "Пример:\n"
+            "<code>ru>tt Привет, как дела?</code>\n"
+            "<code>tt>ru Исәнме, хәлләр ничек?</code>"
+        )
+        await message.answer(text, reply_markup=main_menu_kb)
 
     # ====== CALLBACK-ХЕНДЛЕРЫ ДЛЯ КНОПОК ======
 
@@ -607,6 +626,50 @@ async def main():
 
         if raw_text.startswith("💬 Просто поболтать") or "поболтать" in text_lower:
             await message.answer(random_small_talk(), reply_markup=main_menu_kb)
+            return
+
+        if raw_text.startswith("🌐 Переводчик") or "переводчик" in text_lower:
+            info_text = (
+                "🌐 <b>Переводчик татарский ↔ русский</b>\n\n"
+                "Напиши так:\n"
+                "• <code>ru>tt Ваш текст</code> — с русского на татарский\n"
+                "• <code>tt>ru Сезнең текст</code> — с татарского на русский\n\n"
+                "Мысалы / Например:\n"
+                "<code>ru>tt Привет, как дела?</code>\n"
+                "<code>tt>ru Исәнме, хәлләр ничек?</code>"
+            )
+            await message.answer(info_text, reply_markup=main_menu_kb)
+            return
+
+        # ====== ПЕРЕВОДЧИК ЧЕРЕЗ ПРЕФИКСЫ ru>tt И tt>ru ======
+        if text_lower.startswith("ru>tt"):
+            to_translate = raw_text[5:].strip()
+            if not to_translate:
+                await message.answer("Напиши текст после <code>ru>tt</code>, который нужно перевести на татарский.")
+                return
+
+            ai_question = (
+                "Ты работаешь как строгий переводчик с русского на татарский. "
+                "Дай только перевод на татарском, без транскрипции и лишних комментариев.\n\n"
+                f"Текст: {to_translate}"
+            )
+            ai_reply = await ask_ai(ai_question)
+            await message.answer(ai_reply)
+            return
+
+        if text_lower.startswith("tt>ru"):
+            to_translate = raw_text[5:].strip()
+            if not to_translate:
+                await message.answer("Напиши текст после <code>tt>ru</code>, который нужно перевести на русский.")
+                return
+
+            ai_question = (
+                "Ты работаешь как строгий переводчик с татарского на русский. "
+                "Дай только перевод на русском, без транскрипции и лишних комментариев.\n\n"
+                f"Текст: {to_translate}"
+            )
+            ai_reply = await ask_ai(ai_question)
+            await message.answer(ai_reply)
             return
 
         # ====== AI: ОБРАБОТКА ВЫЗОВА /Адиль ======
